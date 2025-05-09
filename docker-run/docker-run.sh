@@ -2,7 +2,7 @@ docker run \
   --name stable-diffusion-webui \
   --gpus '"device=0"' \
   --env NVIDIA_VISIBLE_DEVICES=all \
-  --publish 192.168.31.142:7860:7860 \
+  --publish 7860:7860 \
   --restart unless-stopped \
   --volume ./inputs:/app/stable-diffusion-webui/inputs \
   --volume ./textual_inversion_templates:/app/stable-diffusion-webui/textual_inversion_templates \
