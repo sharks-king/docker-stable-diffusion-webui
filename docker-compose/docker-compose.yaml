@@ -1,0 +1,49 @@
+services:
+  stable-diffusion-webui:
+    command:
+      - '--api'
+      - '--skip-torch-cuda-test'
+      - '--enable-insecure-extension-access'
+      - '--no-half-vae'
+      - '--skip-install'
+    container_name: stable-diffusion-webui
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities:
+                - gpu
+              device_ids:
+                - '0'
+              driver: nvidia
+    entrypoint:
+      - bash
+      - /app/entrypoint.sh
+      - '--xformers'
+      - '--listen'
+      - '--port'
+      - '7860'
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+    image: >-
+      registry.cn-hangzhou.aliyuncs.com/sharksking/stable-diffusion-webui:v1.10.1-20250107_100652-test
+    ports:
+      - 7860:7860
+    restart: unless-stopped
+    volumes:
+      - >-
+        ./inputs:/app/stable-diffusion-webui/inputs
+      - >-
+        ./textual_inversion_templates:/app/stable-diffusion-webui/textual_inversion_templates
+      - >-
+        ./embeddings:/app/stable-diffusion-webui/embeddings
+      - >-
+        ./extensions:/app/stable-diffusion-webui/extensions
+      - >-
+        ./models:/app/stable-diffusion-webui/models
+      - >-
+        ./localizations:/app/stable-diffusion-webui/localizations
+      - >-
+        ./outputs:/app/stable-diffusion-webui/outputs
+      - >-
+        ./repositories:/app/stable-diffusion-webui/repositories

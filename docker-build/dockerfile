@@ -1,0 +1,64 @@
+FROM pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime
+
+# 关闭 apt-get 交互
+ENV DEBIAN_FRONTEND=noninteractive
+# 设置环境变量，使容器能够访问所有 GPU 设备，针对使用 nvidia-docker2 的 runtime 情况
+ENV NVIDIA_VISIBLE_DEVICES=all
+# 修改 pip 软件源地址，根据网络环境确定是否打开
+# ENV PIP_EXTRA_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
+# 在 PATH 变量中添加 /app/.local/bin ，如果不添加会在依赖安装阶段报错
+ENV PATH="/app/.local/bin:${PATH}"
+
+# 系统依赖安装
+RUN apt update \
+    && apt install git software-properties-common -y \
+    && add-apt-repository ppa:deadsnakes/ppa -y \
+    && apt install -y python3 python3-pip python3-venv git wget libgl1-mesa-dev libglib2.0-0 libsm6 libxrender1 libxext6 libgoogle-perftools4 libtcmalloc-minimal4 libcusparse11 xdg-utils bc aria2 \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# 添加 sduser:sdgroup (1000:1000) 用户，注意在启动时持久化挂载目录的用户id 组id 也应为 1000:1000
+RUN addgroup --gid 1000 sdgroup \
+    && useradd --home-dir /app --shell /bin/bash --uid 1000 --gid 1000 --password "*" --create-home sduser \
+    && ln -s /app /home/sduser \
+    && chown -R sduser:sdgroup /app 
+
+RUN chown -R 1000:1000 /app
+
+# 切换用户
+USER sduser
+
+# 切换工作目录 /app/stable-diffusion-webui
+WORKDIR /app
+
+# 针对依赖项目克隆不下来的问题做了前置优化
+RUN until git clone https://github.com/AUTOMATIC1111/stable-diffusion-webui; do sleep 1; done \
+    && until git clone "https://github.com/Stability-AI/stablediffusion.git" "/app/stable-diffusion-webui/repositories/stable-diffusion-stability-ai"; do sleep 1; done \
+    && until git clone "https://github.com/AUTOMATIC1111/stable-diffusion-webui-assets"  "/app/stable-diffusion-webui/repositories/stable-diffusion-webui-assets"; do leep 1; done \
+    && until git clone "https://github.com/Stability-AI/generative-models.git" "/app/stable-diffusion-webui/repositories/generative-models"; do sleep 1; done \
+    && until git clone  "https://github.com/crowsonkb/k-diffusion.git" "/app/stable-diffusion-webui/repositories/k-diffusion"; do sleep 1; done \
+    && until git clone  "https://github.com/salesforce/BLIP.git" "/app/stable-diffusion-webui/repositories/BLIP"; do sleep 1; done
+
+# 切换工作目录 /app/stable-diffusion-webui
+WORKDIR /app/stable-diffusion-webui
+
+#依赖安装
+RUN python3 -m venv venv \
+    && sed -i 's/include-system-site-packages = false/include-system-site-packages = true/' /app/stable-diffusion-webui/venv/pyvenv.cfg \
+    && pip install packaging xformers \
+    && pip install -r requirements.txt   
+
+# 关闭 launch.py 的 start() 函数，安装 stable-diffusion-webui 环境依赖后，还原launch.py
+RUN sed -i -e 's/    start()/    #start()/g' launch.py \
+    && python3 launch.py --skip-torch-cuda-test \
+    && sed -i -e 's/    #start()/    start()/g' launch.py \
+    && git reset --hard
+
+# 暴露端口
+EXPOSE 7860
+
+# 拷贝启动脚本
+COPY ./entrypoint.sh /app/entrypoint.sh
+
+# 定义启动命令
+ENTRYPOINT ["/bin/bash","/app/entrypoint.sh", "--xformers", "--listen", "--port", "7860"]
