@@ -1,11 +1,11 @@
 services:
   stable-diffusion-webui:
-    command:
-      - '--api'
-      - '--skip-torch-cuda-test'
-      - '--enable-insecure-extension-access'
-      - '--no-half-vae'
-      - '--skip-install'
+    # 构建镜像
+    build:
+      context: ../docker-build/  # Dockerfile 所在的目录
+      dockerfile: Dockerfile  # Dockerfile 文件名（如果文件名不是默认的 Dockerfile）
+    # 现有镜像
+    # image: registry.cn-hangzhou.aliyuncs.com/sharksking/stable-diffusion-webui:v1.10.1-20250107_100652-test
     container_name: stable-diffusion-webui
     deploy:
       resources:
@@ -16,6 +16,7 @@ services:
               device_ids:
                 - '0'
               driver: nvidia
+    # 传入启动命令，可以通古修改这部分参数改变镜像的默认启动方式，不写也没有问题会按照镜像中的定义启动
     entrypoint:
       - bash
       - /app/entrypoint.sh
@@ -23,27 +24,25 @@ services:
       - '--listen'
       - '--port'
       - '7860'
+    # 传入启动参数，会拼接到 entrypoint 后作为启动参数传入，不写会按照容器或docker-compose文件定义的entrypoint去启动
+    command:
+      - '--api'
+      - '--skip-torch-cuda-test'
+      - '--enable-insecure-extension-access'
+      - '--no-half-vae'
+      - '--skip-install'
     environment:
       - NVIDIA_VISIBLE_DEVICES=all
-    image: >-
-      registry.cn-hangzhou.aliyuncs.com/sharksking/stable-diffusion-webui:v1.10.1-20250107_100652-test
     ports:
       - 7860:7860
     restart: unless-stopped
+    # 目录挂载
     volumes:
-      - >-
-        ./inputs:/app/stable-diffusion-webui/inputs
-      - >-
-        ./textual_inversion_templates:/app/stable-diffusion-webui/textual_inversion_templates
-      - >-
-        ./embeddings:/app/stable-diffusion-webui/embeddings
-      - >-
-        ./extensions:/app/stable-diffusion-webui/extensions
-      - >-
-        ./models:/app/stable-diffusion-webui/models
-      - >-
-        ./localizations:/app/stable-diffusion-webui/localizations
-      - >-
-        ./outputs:/app/stable-diffusion-webui/outputs
-      - >-
-        ./repositories:/app/stable-diffusion-webui/repositories
+      - ./inputs:/app/stable-diffusion-webui/inputs
+      - ./textual_inversion_templates:/app/stable-diffusion-webui/textual_inversion_templates
+      - ./embeddings:/app/stable-diffusion-webui/embeddings
+      - ./extensions:/app/stable-diffusion-webui/extensions
+      - ./models:/app/stable-diffusion-webui/models
+      - ./localizations:/app/stable-diffusion-webui/localizations
+      - ./outputs:/app/stable-diffusion-webui/outputs
+      - ./repositories:/app/stable-diffusion-webui/repositories
